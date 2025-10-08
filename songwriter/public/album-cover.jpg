@@ -1,0 +1,5 @@
+<svg width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="300" fill="#FCA5A5"/>
+  <circle cx="150" cy="150" r="100" fill="#FECACA"/>
+  <text x="100" y="160" font-family="Arial" font-weight="bold" font-size="24" fill="white">ALBUM</text>
+</svg> 

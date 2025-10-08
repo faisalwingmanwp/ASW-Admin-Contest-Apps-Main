@@ -1,0 +1,302 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Fan {
+  id               String     @id @default(uuid())
+  name             String?
+  email            String?    @unique
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  stripeCustomerId String?    @unique
+  normalizedEmail  String?    @unique
+  purchases        Purchase[]
+  votes            Vote[]
+
+  @@index([normalizedEmail])
+}
+
+model Contestant {
+  id               String            @id @default(uuid())
+  username         String            @unique
+  bio              String?
+  profilePhoto     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  email            String?           @unique
+  authId           String?           @unique
+  firstName        String?
+  lastName         String?
+  stripeCustomerId String?           @unique
+  phone            String?
+  smsConsent       Boolean           @default(false)
+  entries          Entry[]
+  purchases        Purchase[]
+  SubmissionError  SubmissionError[]
+}
+
+model Category {
+  id             String         @id @default(uuid())
+  title          String
+  icon           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  entries        Entry[]
+  songCategories SongCategory[]
+  Screener       Screener[]     @relation("PreferredCategories")
+}
+
+model Song {
+  id             String         @id @default(uuid())
+  title          String
+  link           String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  coWriters      String?
+  artistName     String?
+  entries        Entry[]
+  songCategories SongCategory[]
+}
+
+model SongCategory {
+  songId     String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  song       Song     @relation(fields: [songId], references: [id])
+
+  @@id([songId, categoryId])
+}
+
+model Product {
+  id              String      @id @default(cuid())
+  name            String
+  type            ProductType
+  price           Int
+  stripePriceId   String      @unique
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  stripeProductId String?     @unique
+  entries         Entry[]
+  purchases       Purchase[]
+  votePacks       VotePack?
+}
+
+model Competition {
+  id               String     @id @default(uuid())
+  name             String
+  description      String?
+  startDate        DateTime
+  endDate          DateTime
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  open             Boolean    @default(true)
+  price            Int        @default(2500)
+  stripePriceId    String?
+  stripeProductId  String?
+  archived         Boolean    @default(false)
+  fanVotingEnabled Boolean    @default(false)
+  entries          Entry[]
+  Purchase         Purchase[]
+}
+
+model Entry {
+  id              String            @id @default(uuid())
+  songId          String
+  categoryId      String
+  contestantId    String
+  productId       String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  paid            Boolean           @default(false)
+  competitionId   String
+  hidden          Boolean           @default(false)
+  category        Category          @relation(fields: [categoryId], references: [id])
+  competition     Competition       @relation(fields: [competitionId], references: [id])
+  contestant      Contestant        @relation(fields: [contestantId], references: [id])
+  product         Product           @relation(fields: [productId], references: [id])
+  song            Song              @relation(fields: [songId], references: [id])
+  EntryReview     EntryReview[]
+  SubmissionError SubmissionError[]
+  votes           Vote[]
+}
+
+model VotePack {
+  id        String   @id @default(uuid())
+  quantity  Int
+  productId String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model Vote {
+  id                String   @id @default(uuid())
+  fanId             String?
+  priceAtPurchase   Int
+  quantity          Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  entryId           String?
+  transactionId     String?
+  deviceFingerprint String?
+  ipAddress         String?
+  userAgent         String?
+  entry             Entry?   @relation(fields: [entryId], references: [id])
+  fan               Fan?     @relation(fields: [fanId], references: [id])
+
+  @@index([transactionId])
+  @@index([ipAddress])
+  @@index([deviceFingerprint])
+  @@index([createdAt])
+}
+
+model Purchase {
+  id              String       @id @default(uuid())
+  fanId           String?
+  productId       String
+  priceAtPurchase Int
+  quantity        Int
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  contestantId    String?
+  competitionId   String?
+  Competition     Competition? @relation(fields: [competitionId], references: [id])
+  contestant      Contestant?  @relation(fields: [contestantId], references: [id])
+  fan             Fan?         @relation(fields: [fanId], references: [id])
+  product         Product      @relation(fields: [productId], references: [id])
+
+  @@index([competitionId])
+}
+
+model EntryReview {
+  id            String       @id
+  screenerId    String
+  entryId       String
+  status        ReviewStatus @default(UNASSIGNED)
+  notes         String?
+  assignedAt    DateTime     @default(now())
+  reviewedAt    DateTime?
+  overallScore  Int?
+  isLatestRound Boolean      @default(true)
+  reviewRound   Int          @default(1)
+  Entry         Entry        @relation(fields: [entryId], references: [id])
+  Screener      Screener     @relation(fields: [screenerId], references: [id])
+
+  @@index([entryId, screenerId, reviewRound])
+}
+
+model Screener {
+  id          String        @id
+  userId      String        @unique
+  createdAt   DateTime      @default(now())
+  bio         String?
+  EntryReview EntryReview[]
+  users       users         @relation(fields: [userId], references: [id])
+  Category    Category[]    @relation("PreferredCategories")
+}
+
+model SubmissionError {
+  id             String              @id @default(uuid())
+  entryId        String
+  contestantId   String
+  errorType      SubmissionErrorType
+  errorMessage   String
+  originalFile   String?
+  fileSize       Int?
+  fileFormat     String?
+  status         ErrorStatus         @default(DETECTED)
+  autoResolved   Boolean             @default(false)
+  resolutionNote String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  resolvedAt     DateTime?
+  Contestant     Contestant          @relation(fields: [contestantId], references: [id])
+  Entry          Entry               @relation(fields: [entryId], references: [id])
+
+  @@index([contestantId])
+  @@index([entryId])
+  @@index([errorType])
+  @@index([status])
+}
+
+model users {
+  id           String    @id
+  email        String    @unique
+  first_name   String?
+  last_name    String?
+  role         UserRole
+  approved     Boolean   @default(false)
+  isSuperAdmin Boolean   @default(false)
+  Screener     Screener?
+}
+
+model Invitation {
+  id          String           @id @default(uuid())
+  email       String           @unique
+  invitedRole UserRole
+  status      InvitationStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([email])
+  @@index([status])
+  @@index([invitedRole])
+}
+
+enum ProductType {
+  ENTRY
+  VOTEPACK
+  MEMBERSHIP
+  FAN_CONTEST
+}
+
+enum ReviewStatus {
+  PENDING_REVIEW
+  UNASSIGNED
+  COMPLETED
+  REJECTED
+  NEEDS_MORE_INFORMATION
+  NEEDS_ANOTHER_REVIEW
+  HIDDEN
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum UserRole {
+  ADMIN
+  CONTESTANT
+  FAN
+  SCREENER
+  UNVERIFIED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+}
+
+enum SubmissionErrorType {
+  BROKEN_LINK
+  AI_DETECTED
+  COVER_SONG
+  OTHER
+}
+
+enum ErrorStatus {
+  DETECTED
+  IN_PROGRESS
+  RESOLVED
+  IGNORED
+}
